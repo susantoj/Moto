@@ -1,0 +1,17 @@
+description;Teco 11kV 5750kW
+sync_speed;1000.000000
+rated_speed;993.000000
+rated_pf;0.845000
+rated_eff;0.965000
+T_b;2.500000
+T_lr;0.150000
+I_lr;7.350000
+max_iter;30
+k_r;1.000000
+k_x;0.500000
+conv_err;0.000010
+n_gen;10
+pop;15
+n_r;12
+n_e;2
+c_f;0.800000

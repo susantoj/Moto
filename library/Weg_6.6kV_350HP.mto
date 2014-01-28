@@ -1,0 +1,17 @@
+description;Weg 6.6kV 350HP
+sync_speed;3600.000000
+rated_speed;3580.000000
+rated_pf;0.880000
+rated_eff;0.948000
+T_b;2.000000
+T_lr;1.200000
+I_lr;7.300000
+max_iter;30
+k_r;1.000000
+k_x;0.500000
+conv_err;0.000010
+n_gen;10
+pop;15
+n_r;12
+n_e;2
+c_f;0.800000

@@ -1,0 +1,17 @@
+description;Toshiba 415V 150kW
+sync_speed;3000.000000
+rated_speed;2965.000000
+rated_pf;0.920000
+rated_eff;0.955000
+T_b;2.750000
+T_lr;1.560000
+I_lr;6.290000
+max_iter;30
+k_r;1.000000
+k_x;0.500000
+conv_err;0.000010
+n_gen;10
+pop;15
+n_r;12
+n_e;2
+c_f;0.800000

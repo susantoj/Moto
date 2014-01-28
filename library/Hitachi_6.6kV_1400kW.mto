@@ -1,0 +1,17 @@
+description;Hitachi 6.6kV 1400kW
+sync_speed;1500.000000
+rated_speed;1491.000000
+rated_pf;0.918000
+rated_eff;0.969000
+T_b;1.821000
+T_lr;0.654000
+I_lr;8.380000
+max_iter;30
+k_r;1.000000
+k_x;0.500000
+conv_err;0.000010
+n_gen;10
+pop;15
+n_r;12
+n_e;2
+c_f;0.800000
