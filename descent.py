@@ -7,10 +7,10 @@ Moto: Induction motor parameter estimation tool
 Descent Algorithms
 
 Author: Julius Susanto
-Last edited: January 2014
+Last edited: August 2014
 """
 import numpy as np
-from common_calcs import *
+from common_calcs import get_torque, calc_pqt
 
 """
 NR_SOLVER  - Newton-Rhapson solver for double cage model with core losses
@@ -136,7 +136,7 @@ def nr_solver(p, mode, kx, kr, max_iter, err_tol):
         
         # Check if jacobian matrix is singular and exit function if so
         if (np.linalg.det(j) == 0):
-            print "Jacobian matrix is singular"
+            print("Jacobian matrix is singular")
             break
         
         x_reset = x
@@ -318,7 +318,7 @@ def lm_solver(p, mode, kx, kr, lambda_0, lambda_max, max_iter, err_tol):
         
         # Check if jacobian matrix is singular and exit function if so
         if (np.linalg.det(j) == 0):
-            print "Jacobian matrix is singular"
+            print("Jacobian matrix is singular")
             break
         
         x_reset = x
@@ -510,7 +510,7 @@ def dnr_solver(p, mode, kx, kr, lambda_i, max_iter, err_tol):
         
         # Check if jacobian matrix is singular and exit function if so
         if (np.linalg.det(j) == 0):
-            print "Jacobian matrix is singular"
+            print("Jacobian matrix is singular")
             break
         
         x_reset = x

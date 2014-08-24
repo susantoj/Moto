@@ -7,10 +7,10 @@ Moto: Induction motor parameter estimation tool
 Genetic Algorithms
 
 Author: Julius Susanto
-Last edited: January 2014
+Last edited: August 2014
 """
 import numpy as np
-from common_calcs import *
+from common_calcs import get_torque, calc_pqt
 
 """
 GA_SOLVER  - Genetic algorithm solver for double cage model with core losses

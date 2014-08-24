@@ -7,12 +7,11 @@ Moto: Induction motor parameter estimation tool
 Hybrid Algorithms
 
 Author: Julius Susanto
-Last edited: January 2014
+Last edited: August 2014
 """
 import numpy as np
 import globals
-from common_calcs import *
-from descent import *
+from descent import nr_solver, dnr_solver, lm_solver
 
 """
 HY_SOLVER  - Hybrid algorithm solver for double cage model with core losses

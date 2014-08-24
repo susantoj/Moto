@@ -7,22 +7,20 @@ Moto: Induction motor parameter estimation tool
 Main window
 
 Author: Julius Susanto
-Last edited: January 2014
+Last edited: August 2014
 """
 
 import os, sys
 from PyQt4 import QtCore, QtGui
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
 import numpy as np
 import dateutil, pyparsing
 import matplotlib.pyplot as plt
 import globals
-from saveload import *
-from common_calcs import *
-from descent import *
-from genetic import *
-from hybrid import *
+import saveload
+from common_calcs import get_torque
+from descent import nr_solver, lm_solver, dnr_solver
+from genetic import ga_solver
+from hybrid import hy_solver
 
 class Window(QtGui.QMainWindow):
     
@@ -30,12 +28,12 @@ class Window(QtGui.QMainWindow):
         super(Window, self).__init__()
         
         globals.init()
-        self.initUI()
-        self.centre()
+        self.initUI()       
         
     def initUI(self):
         
         self.resize(800, 600)
+        self.centre()
         
         # Set background colour of main window to white
         palette = QtGui.QPalette()
@@ -95,7 +93,7 @@ class Window(QtGui.QMainWindow):
         # Motor details
         ################
         
-        header1 = QtGui.QLabel('Motor Details')
+        header1 = QtGui.QLabel('Motor')
         #header1.setMinimumWidth(50)
         header1.setMinimumHeight(30)
         header1.setFont(heading_font)
@@ -181,7 +179,7 @@ class Window(QtGui.QMainWindow):
         # Model
         ########
         
-        header2 = QtGui.QLabel('Motor Model')
+        header2 = QtGui.QLabel('Model')
         header2.setMinimumHeight(40)
         header2.setFont(heading_font)
         
@@ -200,7 +198,7 @@ class Window(QtGui.QMainWindow):
         # Algorithm settings
         #####################
         
-        header3 = QtGui.QLabel('Algorithm Settings')
+        header3 = QtGui.QLabel('Settings')
         header3.setMinimumHeight(40)
         header3.setFont(heading_font)
         
@@ -291,7 +289,7 @@ class Window(QtGui.QMainWindow):
         # Algorithm results
         ####################
         
-        header4 = QtGui.QLabel('Algorithm Results')
+        header4 = QtGui.QLabel('Results')
         #header4.setMinimumWidth(150)
         header4.setMinimumHeight(40)
         header4.setFont(heading_font)
@@ -396,11 +394,11 @@ class Window(QtGui.QMainWindow):
         grid.addWidget(label8a, i+5, 6)
         
         # Model
-        i = 10
-        grid.addWidget(header2, i, 0)
+        i = 9
+        #grid.addWidget(header2, i, 0)
         grid.addWidget(label_model, i+1, 0)
         grid.addWidget(self.combo_model, i+1, 1)
-        grid.addWidget(img1, i, 3, i-7, 6)
+        grid.addWidget(img1, i+1, 3, i-7, 6)
         
         # Algorithm settings
         i = 12
@@ -428,8 +426,8 @@ class Window(QtGui.QMainWindow):
         grid.addWidget(self.labelc_f, i+3, 5)
         grid.addWidget(self.lec_f, i+3, 6)
         
-        grid.addWidget(calc_button, 0, 5)
-        grid.addWidget(self.plot_button, 0, 6)
+        grid.addWidget(calc_button, i+4, 5)
+        grid.addWidget(self.plot_button, i+4, 6)
         
         # Algorithm results
         i = 17
@@ -457,9 +455,9 @@ class Window(QtGui.QMainWindow):
         grid.addWidget(label23, i+3, 5)
         grid.addWidget(self.leIter, i+3, 6)
         
-        grid.setAlignment(Qt.AlignTop)      
+        grid.setAlignment(QtCore.Qt.AlignTop)      
 
-        main_screen = QWidget()
+        main_screen = QtGui.QWidget()
         main_screen.setLayout(grid)
         main_screen.setStatusTip('Ready')
         
@@ -671,8 +669,8 @@ class Window(QtGui.QMainWindow):
         # Open file dialog box
         filename = QtGui.QFileDialog.getOpenFileName(self, "Open Moto File", "library/", "Moto files (*.mto)")
         
-        if filename <> "":
-            load_file(filename)
+        if filename:
+            saveload.load_file(filename)
             self.update_window()
     
     # Save motor data to file
@@ -680,8 +678,8 @@ class Window(QtGui.QMainWindow):
         # Open save file dialog box
         filename = QtGui.QFileDialog.getSaveFileName(self, "Save Moto File", "library/", "Moto files (*.mto)")
         
-        if filename <> "":
-            save_file(filename)
+        if filename:
+            saveload.save_file(filename)
     
     # Launch user manual
     def user_manual(self):
@@ -729,8 +727,8 @@ class Window(QtGui.QMainWindow):
     # Centre application window on screen
     def centre(self):
         qr = self.frameGeometry()
-        qr.moveCenter(QtGui.QDesktopWidget().availableGeometry().center())
-        
+        cp = QtGui.QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
         self.move(qr.topLeft())
 
 def main():
