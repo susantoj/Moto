@@ -10,7 +10,7 @@ Author: Julius Susanto
 Last edited: August 2014
 """
 import numpy as np
-from common_calcs import get_torque, calc_pqt
+from common_calcs import get_torque, calc_pqt, get_torque_sc, calc_pqt_sc
 
 """
 NR_SOLVER  - Newton-Rhapson solver for double cage model with core losses
@@ -19,7 +19,7 @@ NR_SOLVER  - Newton-Rhapson solver for double cage model with core losses
              Includes adaptive step size (as per Pedra 2008)
              Includes determinant check of jacobian matrix
 
-Usage: nr_solver (p, kx, kr, max_iter, err_tol)
+Usage: nr_solver (p, mode, kx, kr, max_iter, err_tol)
 
 Where   p is a vector of motor performance parameters:
         p = [sf eff pf Tb Tlr Ilr]
@@ -561,6 +561,142 @@ def dnr_solver(p, mode, kx, kr, lambda_i, max_iter, err_tol):
             # If descent direction isn't minimising, then there is no convergence
             if (hn < hn_min):
                 return z, iter, err, conv
+
+    if err < err_tol:
+        conv = 1
+    
+    return z, iter, err, conv
+
+"""    
+NR_SOLVER _SC - Newton-Rhapson solver for single cage model with core losses
+                Solves for 4 circuit parameters [Xs Xm Rr1 Rc]
+                Includes adaptive step size (as per Pedra 2008)
+                Includes determinant check of jacobian matrix
+
+Usage: nr_solver (p, mode, kx, kr, max_iter, err_tol)
+
+Where   p is a vector of motor performance parameters:
+        p = [sf eff pf Tb]
+          sf = full-load slip
+          eff = full-load efficiency
+          pf = full-load power factor
+          T_b = breakdown torque (as # of FL torque)
+        mode = 0: normal, 1: fixed Rs and Xr2
+        kx and kr are linear restrictions in normal mode
+                  and fixed Xr2 and Kr in mode 1
+        max_iter is the maximum number of iterations  
+        err_tol is the error tolerance for convergence
+
+Returns:   x is a vector of motor equivalent parameters:
+          x = [Rs Xs Xm Rr1 Xr1 Rc]
+           x(0) = Rs = stator resistance
+           x(1) = Xs = stator reactance
+           x(2) = Xm = magnetising reactance
+           x(3) = Rr1 = rotor resistance
+           x(5) = Xr1 = rotor reactance
+           x(4) = Rc = core resistance
+          iter is the number of iterations
+          err is the squared error of the objective function
+          conv is a true/false flag indicating convergence
+"""    
+def nr_solver_sc(p, mode, kx, kr, max_iter, err_tol):
+    
+    # Human-readable motor performance parameters
+    # And base value initialisation
+    sf = p[0]                          # Full-load slip (pu)
+    eff = p[1]                         # Full-load efficiency (pu)
+    pf = p[2]                          # Full-load power factor (pu)
+    T_fl = pf * eff / (1 - sf)         # Full-load torque (pu)
+    T_b = p[3] * T_fl                  # Breakdown torque (pu)
+    Pm_fl = pf * eff                   # Mechanical power (at FL)
+    Q_fl = np.sin(np.arccos(pf))         # Full-load reactive power (pu)
+
+    # Set initial conditions
+    z = np.zeros(6)
+    z[2] = 1 / Q_fl            #Xm
+    z[1] = 0.05 * z[2]         #Xs
+    z[3] = 1 / Pm_fl * sf      #Rr1
+    z[4] = 12
+    
+    if mode == 0:
+        z[0] = kr * z[3]           #Rs
+        z[5] = kx * z[1]           #Xr1
+    else:
+        z[0] = kr
+        z[5] = kx
+    
+    # Formulate solution
+    pqt = [Pm_fl, Q_fl, T_b, eff]
+
+    # Set up NR algorithm parameters
+    h = 0.00001
+    n = 0
+    hn = 1
+    hn_min = 0.0000001
+    err = 1.0
+    iter = 0
+    conv = 0
+    
+    # Run NR algorithm
+    while (err > err_tol) and (iter < max_iter):
+        
+        # Evaluate objective function for current iteration
+        diff = np.subtract(pqt, calc_pqt_sc(sf,z))
+        y = np.divide(diff, pqt)
+        err0 = np.dot(y, np.transpose(y))
+        
+        # Construct Jacobian matrix
+        j = np.zeros((4,4))
+        for i in range(1,5):
+            z[i] = z[i] + h            
+            diff = np.subtract(pqt, calc_pqt_sc(sf,z))
+            j[:,i-1] = (np.divide(diff, pqt) - y) / h
+            z[i] = z[i] - h
+        
+        # Check if jacobian matrix is singular and exit function if so
+        if (np.linalg.det(j) == 0):
+            print("Jacobian matrix is singular")
+            break
+        
+        z_reset = z
+        y_reset = y
+        iter0 = iter
+        
+        # Inner loop (descent direction check and step size adjustment)
+        while (iter == iter0):
+            # Calculate next iteration and update z
+            jmat = np.matrix(j)
+            delta_z = np.dot(jmat.getI(), np.transpose(y)).A[0]
+            z[1] = np.abs(z[1] - delta_z[0])
+            z[2] = np.abs(z[2] - delta_z[1])
+            z[3] = np.abs(z[3] - delta_z[2])
+            z[4] = np.abs(z[4] - delta_z[3])
+            
+            if mode == 0:
+                z[0] = kr * z[3]           #Rs
+                z[5] = kx * z[1]           #Xr1
+            else:
+                z[0] = kr
+                z[5] = kx
+            
+            # Calculate squared error terms
+            diff = np.subtract(pqt, calc_pqt_sc(sf,z))
+            y = np.divide(diff, pqt)
+            err = np.dot(y, np.transpose(y))
+            
+            # Descent direction check and step size adjustment
+            if (np.abs(err) >= np.abs(err0)):
+                n = n + 1
+                hn = 2 ** (-n)
+                z = z_reset
+                y = y_reset
+            else:
+                n = 0
+                iter = iter + 1
+            
+            # If descent direction isn't minimising, then there is no convergence
+            if (hn < hn_min):
+                break 
 
     if err < err_tol:
         conv = 1

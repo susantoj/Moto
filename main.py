@@ -17,8 +17,8 @@ import dateutil, pyparsing
 import matplotlib.pyplot as plt
 import globals
 import saveload
-from common_calcs import get_torque
-from descent import nr_solver, lm_solver, dnr_solver
+from common_calcs import get_torque, get_torque_sc
+from descent import nr_solver, lm_solver, dnr_solver, nr_solver_sc
 from genetic import ga_solver
 from hybrid import hy_solver
 
@@ -187,12 +187,13 @@ class Window(QtGui.QMainWindow):
         #label_model.setMinimumWidth(150)
         
         self.combo_model = QtGui.QComboBox()
-        # self.combo_model.addItem("Single cage")
+        self.combo_model.addItem("Single cage")
         # self.combo_model.addItem("Single cage w/o core losses")
         self.combo_model.addItem("Double cage")
+        self.combo_model.setCurrentIndex(1)
         
-        img1 = QtGui.QLabel()
-        img1.setPixmap(QtGui.QPixmap('images\dbl_cage.png'))
+        self.img1 = QtGui.QLabel()
+        self.img1.setPixmap(QtGui.QPixmap('images\dbl_cage.png'))
         
         #####################
         # Algorithm settings
@@ -324,13 +325,13 @@ class Window(QtGui.QMainWindow):
         self.leRr1 = QtGui.QLineEdit()
         self.leRr1.setStatusTip('Inner cage rotor resistance (pu)')
         
-        label18 = QtGui.QLabel('X_r2')
+        self.label18 = QtGui.QLabel('X_r2')
         #label18.setMinimumWidth(150)
         
         self.leXr2 = QtGui.QLineEdit()
         self.leXr2.setStatusTip('Outer cage rotor reactance (pu)')
         
-        label19 = QtGui.QLabel('R_r2')
+        self.label19 = QtGui.QLabel('R_r2')
         #label19.setMinimumWidth(150)
         
         self.leRr2 = QtGui.QLineEdit()
@@ -398,7 +399,7 @@ class Window(QtGui.QMainWindow):
         #grid.addWidget(header2, i, 0)
         grid.addWidget(label_model, i+1, 0)
         grid.addWidget(self.combo_model, i+1, 1)
-        grid.addWidget(img1, i+1, 3, i-7, 6)
+        grid.addWidget(self.img1, i+1, 3, i-7, 6)
         
         # Algorithm settings
         i = 12
@@ -444,9 +445,9 @@ class Window(QtGui.QMainWindow):
         grid.addWidget(self.leXr1, i+1, 4)
         grid.addWidget(label17, i+2, 3)
         grid.addWidget(self.leRr1, i+2, 4)
-        grid.addWidget(label18, i+3, 3)
+        grid.addWidget(self.label18, i+3, 3)
         grid.addWidget(self.leXr2, i+3, 4)
-        grid.addWidget(label19, i+4, 3)
+        grid.addWidget(self.label19, i+4, 3)
         grid.addWidget(self.leRr2, i+4, 4)
         grid.addWidget(label21, i+1, 5)
         grid.addWidget(self.leConv, i+1, 6)
@@ -489,6 +490,7 @@ class Window(QtGui.QMainWindow):
         #TO DO - connects for combo boxes - combo_model and combo_algo (what signal to use?)
         ##########################
         self.combo_algo.currentIndexChanged.connect(self.update_algo)
+        self.combo_model.currentIndexChanged.connect(self.update_model)
         
         self.statusBar().showMessage('Ready')
     
@@ -497,37 +499,50 @@ class Window(QtGui.QMainWindow):
         self.statusBar().showMessage('Calculating...')
         
         sf = (globals.motor_data["sync_speed"] - globals.motor_data["rated_speed"]) / globals.motor_data["sync_speed"]
-        p = [sf, globals.motor_data["rated_eff"], globals.motor_data["rated_pf"], globals.motor_data["T_b"], globals.motor_data["T_lr"], globals.motor_data["I_lr"] ]
         
-        if self.combo_algo.currentText() == "Newton-Raphson":
-            [z, iter, err, conv] = nr_solver(p, 0, globals.algo_data["k_x"], globals.algo_data["k_r"], globals.algo_data["max_iter"], globals.algo_data["conv_err"])           
-        
-        if self.combo_algo.currentText() == "Levenberg-Marquardt":
-            [z, iter, err, conv] = lm_solver(p, 0, globals.algo_data["k_x"], globals.algo_data["k_r"], 1e-7, 5.0, globals.algo_data["max_iter"], globals.algo_data["conv_err"])
+        if self.combo_model.currentIndex() == 0:
+            # Single cage
+            p = [sf, globals.motor_data["rated_eff"], globals.motor_data["rated_pf"], globals.motor_data["T_b"]]
+            [z, iter, err, conv] = nr_solver_sc(p, 0, globals.algo_data["k_x"], globals.algo_data["k_r"], globals.algo_data["max_iter"], globals.algo_data["conv_err"]) 
             
-        if self.combo_algo.currentText() == "Damped Newton-Raphson":
-            [z, iter, err, conv] = dnr_solver(p, 0, globals.algo_data["k_x"], globals.algo_data["k_r"], 1e-7, globals.algo_data["max_iter"], globals.algo_data["conv_err"])
+        else:
+            # Double cage
+            p = [sf, globals.motor_data["rated_eff"], globals.motor_data["rated_pf"], globals.motor_data["T_b"], globals.motor_data["T_lr"], globals.motor_data["I_lr"] ]            
             
-        if self.combo_algo.currentText() == "Genetic Algorithm":
-            [z, iter, err, conv] = ga_solver(self, p, globals.algo_data["pop"], globals.algo_data["n_r"], globals.algo_data["n_e"], globals.algo_data["c_f"], globals.algo_data["n_gen"], globals.algo_data["conv_err"])
+            if self.combo_algo.currentText() == "Newton-Raphson":
+                [z, iter, err, conv] = nr_solver(p, 0, globals.algo_data["k_x"], globals.algo_data["k_r"], globals.algo_data["max_iter"], globals.algo_data["conv_err"])           
             
-        if self.combo_algo.currentText() == "Hybrid GA-NR":
-            [z, iter, err, conv] = hy_solver(self, "NR", p, globals.algo_data["pop"], globals.algo_data["n_r"], globals.algo_data["n_e"], globals.algo_data["c_f"], globals.algo_data["n_gen"], globals.algo_data["conv_err"])
-            
-        if self.combo_algo.currentText() == "Hybrid GA-LM":
-            [z, iter, err, conv] = hy_solver(self, "LM", p, globals.algo_data["pop"], globals.algo_data["n_r"], globals.algo_data["n_e"], globals.algo_data["c_f"], globals.algo_data["n_gen"], globals.algo_data["conv_err"])
-            
-        if self.combo_algo.currentText() == "Hybrid GA-DNR":
-            [z, iter, err, conv] = hy_solver(self, "DNR", p, globals.algo_data["pop"], globals.algo_data["n_r"], globals.algo_data["n_e"], globals.algo_data["c_f"], globals.algo_data["n_gen"], globals.algo_data["conv_err"])
+            if self.combo_algo.currentText() == "Levenberg-Marquardt":
+                [z, iter, err, conv] = lm_solver(p, 0, globals.algo_data["k_x"], globals.algo_data["k_r"], 1e-7, 5.0, globals.algo_data["max_iter"], globals.algo_data["conv_err"])
+                
+            if self.combo_algo.currentText() == "Damped Newton-Raphson":
+                [z, iter, err, conv] = dnr_solver(p, 0, globals.algo_data["k_x"], globals.algo_data["k_r"], 1e-7, globals.algo_data["max_iter"], globals.algo_data["conv_err"])
+                
+            if self.combo_algo.currentText() == "Genetic Algorithm":
+                [z, iter, err, conv] = ga_solver(self, p, globals.algo_data["pop"], globals.algo_data["n_r"], globals.algo_data["n_e"], globals.algo_data["c_f"], globals.algo_data["n_gen"], globals.algo_data["conv_err"])
+                
+            if self.combo_algo.currentText() == "Hybrid GA-NR":
+                [z, iter, err, conv] = hy_solver(self, "NR", p, globals.algo_data["pop"], globals.algo_data["n_r"], globals.algo_data["n_e"], globals.algo_data["c_f"], globals.algo_data["n_gen"], globals.algo_data["conv_err"])
+                
+            if self.combo_algo.currentText() == "Hybrid GA-LM":
+                [z, iter, err, conv] = hy_solver(self, "LM", p, globals.algo_data["pop"], globals.algo_data["n_r"], globals.algo_data["n_e"], globals.algo_data["c_f"], globals.algo_data["n_gen"], globals.algo_data["conv_err"])
+                
+            if self.combo_algo.currentText() == "Hybrid GA-DNR":
+                [z, iter, err, conv] = hy_solver(self, "DNR", p, globals.algo_data["pop"], globals.algo_data["n_r"], globals.algo_data["n_e"], globals.algo_data["c_f"], globals.algo_data["n_gen"], globals.algo_data["conv_err"])
         
         self.leRs.setText(str(np.round(z[0],5)))
         self.leXs.setText(str(np.round(z[1],5)))
         self.leXm.setText(str(np.round(z[2],5)))
-        self.leRr1.setText(str(np.round(z[3],5)))
-        self.leXr1.setText(str(np.round(z[4],5)))
-        self.leRr2.setText(str(np.round(z[5],5)))
-        self.leXr2.setText(str(np.round(z[6],5)))
-        self.leRc.setText(str(np.round(z[7],5)))
+        self.leRr1.setText(str(np.round(z[3],5)))        
+         
+        if self.combo_model.currentIndex() == 1:
+            self.leXr1.setText(str(np.round(z[4],5)))
+            self.leRr2.setText(str(np.round(z[5],5)))
+            self.leXr2.setText(str(np.round(z[6],5)))
+            self.leRc.setText(str(np.round(z[7],5)))
+        else:
+            self.leRc.setText(str(np.round(z[4],5)))
+            self.leXr1.setText(str(np.round(z[5],5)))
         
         if conv == 1:
             self.leConv.setText("Yes")
@@ -549,7 +564,12 @@ class Window(QtGui.QMainWindow):
     # Plot torque-speed and current-speed curves
     def plot_curves(self):
         sf = (globals.motor_data["sync_speed"] - globals.motor_data["rated_speed"]) / globals.motor_data["sync_speed"]
-        x = [float(self.leRs.text()), float(self.leXs.text()) , float(self.leXm.text()), float(self.leRr1.text()), float(self.leXr1.text()), float(self.leRr2.text()), float(self.leXr2.text()), float(self.leRc.text())]
+        if self.combo_model.currentIndex() == 0:
+            # Single cage
+            x = [float(self.leRs.text()), float(self.leXs.text()) , float(self.leXm.text()), float(self.leRr1.text()), float(self.leRc.text()), float(self.leXr1.text())]
+        else:
+            # Double cage
+            x = [float(self.leRs.text()), float(self.leXs.text()) , float(self.leXm.text()), float(self.leRr1.text()), float(self.leXr1.text()), float(self.leRr2.text()), float(self.leXr2.text()), float(self.leRc.text())]
         
         # Rated per-unit torque
         T_rtd = globals.motor_data["rated_eff"] * globals.motor_data["rated_pf"] / (1 - sf)
@@ -561,7 +581,12 @@ class Window(QtGui.QMainWindow):
         for n in range(0,1000):
             speed[n] = float(n) / 1000 * globals.motor_data["sync_speed"]
             i = 1 - float(n) / 1000
-            [Ti, Ii] = get_torque(i,x)
+            if self.combo_model.currentIndex() == 0:
+                # Single cage
+                [Ti, Ii] = get_torque_sc(i,x)
+            else:
+                # Double cage
+                [Ti, Ii] = get_torque(i,x)
             
             Tm[n] = Ti / T_rtd      # Convert torque to T/Tn value
             Im[n] = np.abs(Ii)
@@ -663,7 +688,33 @@ class Window(QtGui.QMainWindow):
                 self.len_r.hide()
                 self.len_e.hide()
                 self.lec_f.hide()
-                
+    
+    # Update if model combo box changed
+    def update_model(self):
+        if self.combo_model.currentIndex() == 0:
+            # Single cage
+            self.img1.setPixmap(QtGui.QPixmap('images\single_cage.png'))
+            self.combo_algo.setCurrentIndex(0)
+            self.combo_algo.clear()
+            self.combo_algo.addItem("Newton-Raphson")
+            self.label18.setVisible(0)
+            self.label19.setVisible(0)
+            self.leXr2.hide()
+            self.leRr2.hide()
+        else:
+            # Double cage
+            self.img1.setPixmap(QtGui.QPixmap('images\dbl_cage.png'))
+            self.combo_algo.addItem("Levenberg-Marquardt")
+            self.combo_algo.addItem("Damped Newton-Raphson")
+            self.combo_algo.addItem("Genetic Algorithm")
+            self.combo_algo.addItem("Hybrid GA-NR")
+            self.combo_algo.addItem("Hybrid GA-LM")
+            self.combo_algo.addItem("Hybrid GA-DNR")
+            self.label18.setVisible(1)
+            self.label19.setVisible(1)
+            self.leXr2.show()
+            self.leRr2.show()
+    
     # Open file and load motor data
     def load_action(self):
         # Open file dialog box
@@ -690,38 +741,13 @@ class Window(QtGui.QMainWindow):
         QtGui.QMessageBox.about(self, "About Moto",
                 """<b>Moto</b> is a parameter estimation tool that can be used to determine the equivalent circuit parameters of induction machines. The tool is intended for use in dynamic time-domain simulations such as stability and motor starting studies.
                    <p>
-                   Version: <b>v0.1 Beta<b><P>
+                   Version: <b>v0.2<b><P>
                    <p>
                    Website: <a href="http://www.sigmapower.com.au/moto.html">www.sigmapower.com.au/moto.html</a>
                    <p> </p>
                    <p><img src="images/Sigma_Power.png"></p>
                    <p>&copy; 2014 Sigma Power Engineering Pty Ltd</p>
-                   <p>All rights reserved.</p>
-                   <p>
-                   Redistribution and use in binary form is permitted provided that the following conditions are met:
-                   <p>
-                    1. Redistributions in binary form must reproduce the above copyright
-                       notice, this list of conditions and the following disclaimer in the
-                       documentation and/or other materials provided with the distribution.
-                   <p>
-                    2. All advertising materials mentioning features or use of this software
-                       must display the following acknowledgement:
-                       This product includes software developed by the Sigma Power Engineering Pty Ltd.
-                   <p>
-                    3. Neither the name of the Sigma Power Engineering Pty Ltd nor the
-                       names of its contributors may be used to endorse or promote products
-                       derived from this software without specific prior written permission.
-                   <p>
-                    THIS SOFTWARE IS PROVIDED BY SIGMA POWER ENGINEERING PTY LTD ''AS IS'' AND ANY
-                    EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-                    WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-                    DISCLAIMED. IN NO EVENT SHALL SIGMA POWER ENGINEERING PTY LTD BE LIABLE FOR ANY
-                    DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-                    (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-                    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-                    ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-                    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-                    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                   
+                   <p>All rights reserved.</p>             
                    """)
     
     # Centre application window on screen
