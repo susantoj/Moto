@@ -6,6 +6,8 @@ Moto is unique in that it provides a selection of the most advanced parameter es
 
 See also the [user documentation](https://github.com/susantoj/Moto/blob/master/docs/moto_user_manual.pdf) (PDF, 748kb).
 
+![screenshot of GUI](/images/moto_main.png?raw=true)
+
 ## Minimum requirements
 - Python 2.7
 - PyQt
